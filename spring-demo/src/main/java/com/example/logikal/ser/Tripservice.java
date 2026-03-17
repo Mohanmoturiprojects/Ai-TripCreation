@@ -126,7 +126,7 @@ public class Tripservice {
 
         System.out.println("Start Time: " + start);
 
-        // ✅ VEHICLE SELECTION
+        // vehicle selection
         Vehicle vehicle;
 
         if (command.getVehicleId() != null && command.getVehicleId() > 0) {
