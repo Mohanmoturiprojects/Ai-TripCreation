@@ -1,0 +1,25 @@
+package com.example.logikal;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.example.logikal.model.QuestionRequest;
+import com.example.logikal.ser.Tripservice;
+
+
+
+@RestController
+@RequestMapping("/trip")
+public class Controller {
+	@Autowired Tripservice tripservice;
+
+	 @PostMapping("/create")
+	    public String createTrip(@RequestBody QuestionRequest request) {
+
+		    return tripservice.processQuestion(request.getQuestion());
+	        
+	    }
+}

@@ -1,0 +1,19 @@
+package com.example.logikal.repo;
+
+import org.springframework.data.geo.Distance;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import com.example.logikal.Entity.Trip;
+import com.example.logikal.Entity.Vehicle;
+import com.example.logikal.Entity.WearHouse;
+import com.example.logikal.Entity.WhDistance;
+
+@Repository
+public interface Distancerepo extends JpaRepository<WhDistance, Long>{
+
+	
+
+	
+
+}

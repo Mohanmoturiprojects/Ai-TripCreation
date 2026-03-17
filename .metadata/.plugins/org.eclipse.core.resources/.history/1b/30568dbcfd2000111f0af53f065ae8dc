@@ -1,0 +1,19 @@
+package com.example.logikal.config;
+
+import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
+
+@Configuration
+public class AiConfig {
+    
+    @Bean
+    @Primary
+    public ChatClient chatClient(@Qualifier("ollamaChatClient") ChatClient.Builder builder) {
+        return builder.build();
+    }
+}
+
+

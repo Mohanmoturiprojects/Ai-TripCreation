@@ -1,0 +1,120 @@
+package com.example.logikal.ser;
+
+import java.time.LocalDateTime;
+
+import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.example.logikal.Entity.Trip;
+import com.example.logikal.Entity.Vehicle;
+import com.example.logikal.Entity.WhDistance;
+import com.example.logikal.model.TripCommand;
+import com.example.logikal.repo.Distancerepo;
+import com.example.logikal.repo.Triprepo;
+import com.example.logikal.repo.Vehiclerepo;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+@Service
+public class Tripservice {
+	@Autowired Triprepo triprepo;
+  @Autowired Distancerepo  distancerepo;
+  @Autowired Vehiclerepo vehiclerepo;
+
+
+
+  @Autowired private ChatClient chatClient; 
+  
+public String processQuestion(String question) {
+	 // Step 1 : Ask Ollama to convert text to JSON
+	System.out.println("Calling Ollama AI...");
+
+	String aiResponse = chatClient.prompt()
+	        .user("Extract trip details in JSON from: " + question)
+	        .call()
+	        .content();
+
+	System.out.println("AI JSON Response: " + aiResponse);
+
+    // Step 2 : Convert JSON → Java Object
+	TripCommand command = parseJson(aiResponse);
+	
+	LocalDateTime start;
+
+	if (command.getStartTime() == null || command.getStartTime().isBlank()) {
+
+	    start = LocalDateTime.now();
+
+	} else {
+
+	    start = LocalDateTime.parse(command.getStartTime());
+
+	}
+
+	System.out.println("Trip Start Time: " + start);
+
+	System.out.println("Parsed command:");
+	System.out.println("Source: " + command.getStartlocation());
+	System.out.println("Destination: " + command.getDestination());
+	System.out.println("VehicleId: " + command.getVehicleId());
+	System.out.println("StartTime: " + command.getStartTime());
+
+    // Step 3 : Validate vehicle
+    Vehicle vehicle = vehiclerepo.findById(command.getVehicleId())
+            .orElseThrow(() -> new RuntimeException("Vehicle not found"));
+
+    // Step 4 : Get distance
+    System.out.println("Fetching warehouse distance...");
+
+    WhDistance distance = distancerepo
+            .findByStartLocationAndDestination(
+                    command.getStartlocation(),
+                    command.getDestination()
+            );
+
+    System.out.println("Distance record: " + distance);
+
+    Double km = distance.getDistanceKm();
+
+    double avgSpeed = 50;
+
+    long travelHours = (long) (km / avgSpeed);
+
+    LocalDateTime start = LocalDateTime.parse(command.getStartTime());
+
+    LocalDateTime arrival = start.plusHours(travelHours);
+
+    // Step 6 : Create Trip
+    Trip trip = new Trip();
+    trip.setStartLocation(command.getStartlocation());
+    trip.setDestination(command.getDestination());
+    trip.setStartTime(start);
+    trip.setExpectedArrival(arrival);
+    trip.setVehicleId(vehicle.getId());
+
+    triprepo.save(trip);
+
+    return "Trip created successfully with ETA: " + arrival;
+
+
+}
+private TripCommand parseJson(String aiResponse) {
+    try {
+
+        // Extract JSON block
+        int start = aiResponse.indexOf("{");
+        int end = aiResponse.lastIndexOf("}") + 1;
+
+        String json = aiResponse.substring(start, end);
+
+        System.out.println("Clean JSON: " + json);
+
+        ObjectMapper mapper = new ObjectMapper();
+        return mapper.readValue(json, TripCommand.class);
+
+    } catch (Exception e) {
+        throw new RuntimeException("Error parsing AI response: " + e.getMessage());
+    }
+}
+  
+}

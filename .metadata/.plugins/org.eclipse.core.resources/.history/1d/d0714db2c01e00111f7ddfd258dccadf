@@ -1,0 +1,17 @@
+spring.application.name=spring-demo
+
+server.port=5555
+
+spring.datasource.url=jdbc:mysql://localhost:3306/logikal
+spring.datasource.username=root
+spring.datasource.password=Mohan@234
+
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=true
+spring.jpa.properties.hibernate.format_sql=true
+
+spring.ai.ollama.base-url=http://localhost:11434
+spring.ai.ollama.chat.model=phi3
+
+spring.ai.ollama.connection-timeout=60s
+spring.ai.ollama.read-timeout=180s

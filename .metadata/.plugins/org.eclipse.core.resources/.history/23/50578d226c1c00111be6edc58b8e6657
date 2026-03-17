@@ -1,0 +1,23 @@
+package com.example.logikal.repo;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import com.example.logikal.Entity.Trip;
+import com.example.logikal.Entity.Vehicle;
+import com.example.logikal.Entity.WearHouse;
+import com.example.logikal.Entity.WhDistance;
+
+@Repository
+public interface Triprepo extends JpaRepository<WhDistance, Long>{
+
+	static Triprepo findBySourceAndDestination(String source, String destination) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	double getDistanceKm();
+
+	void saveAll(Trip trip);
+
+}

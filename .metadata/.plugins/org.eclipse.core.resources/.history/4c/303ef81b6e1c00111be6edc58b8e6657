@@ -1,0 +1,21 @@
+package com.example.logikal.model;
+
+import java.time.LocalDateTime;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+
+@Data
+@AllArgsConstructor
+public class TripCommand {
+	
+	 private String startlocation;
+
+	    private String destination;
+
+	    private Long vehicleId;
+
+	    private String startTime;
+
+
+}

@@ -1,0 +1,266 @@
+package com.example.logikal.ser;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.Date;
+import java.util.List;
+
+import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import com.example.logikal.Entity.Trip;
+import com.example.logikal.Entity.Vehicle;
+import com.example.logikal.Entity.WhDistance;
+import com.example.logikal.model.TripCommand;
+import com.example.logikal.model.TripResponse;
+import com.example.logikal.repo.Distancerepo;
+import com.example.logikal.repo.Triprepo;
+import com.example.logikal.repo.Vehiclerepo;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.joestelmach.natty.Parser;
+
+@Service
+public class Tripservice {
+
+    @Autowired
+    private Triprepo triprepo;
+
+    @Autowired
+    private Distancerepo distancerepo;
+
+    @Autowired
+    private Vehiclerepo vehiclerepo;
+
+    @Autowired
+    private ChatClient chatClient;
+
+    public TripResponse processQuestion(String question) {
+
+        System.out.println("====================================");
+        System.out.println("User Question: " + question);
+        System.out.println("Calling AI...");
+        System.out.println("====================================");
+
+        // STEP 1 : Ask AI to extract JSON
+        LocalDate today = LocalDate.now();
+
+        String aiResponse = chatClient.prompt()
+                .user("""
+        Extract trip details from the text.
+
+        Today's date is: %s
+
+        Return ONLY valid JSON.
+
+        {
+         "startlocation":"",
+         "destination":"",
+         "vehicleId":null,
+         "startTime":"yyyy-MM-ddTHH:mm:ss"
+        }
+
+        Text: %s
+        """.formatted(today, question))
+                .call()
+                .content();
+        
+        
+
+        // STEP 2 : Parse JSON
+        TripCommand command = parseJson(aiResponse);
+
+        System.out.println("Parsed Command:");
+        System.out.println("Start Location: " + command.getStartlocation());
+        System.out.println("Destination: " + command.getDestination());
+        System.out.println("Vehicle ID: " + command.getVehicleId());
+        System.out.println("Start Time: " + command.getStartTime());
+
+        // STEP 3 : Validate Locations
+        if (command.getStartlocation() == null || command.getDestination() == null) {
+            throw new RuntimeException("AI could not extract locations.");
+        }
+
+        // STEP 4 : Handle Start Time
+        LocalDateTime start;
+
+        String startTimeText = command.getStartTime();
+
+        try {
+
+            if (startTimeText == null || startTimeText.isBlank()) {
+
+                start = LocalDateTime.now();
+                System.out.println("StartTime missing → using current time");
+
+            } else {
+
+                Parser parser = new Parser();
+
+                Date date = parser.parse(startTimeText)
+                                  .get(0)
+                                  .getDates()
+                                  .get(0);
+
+                start = date.toInstant()
+                        .atZone(ZoneId.systemDefault())
+                        .toLocalDateTime();
+
+                System.out.println("Parsed StartTime using Natty: " + start);
+                
+                if (start.getYear() < LocalDate.now().getYear()) {
+
+                    System.out.println("AI returned past year. Fixing to current year.");
+
+                    start = start.withYear(LocalDate.now().getYear());
+                }
+
+            }
+
+        } catch (Exception e) {
+
+            System.out.println("Failed to parse time → using current time");
+
+            start = LocalDateTime.now();
+        }
+
+        System.out.println("Trip Start Time: " + start);
+
+        // STEP 5 : Vehicle Selection
+        System.out.println("Selecting Vehicle...");
+
+        Vehicle vehicle;
+
+        if (command.getVehicleId() != null && command.getVehicleId() > 0) {
+
+            vehicle = vehiclerepo.findById(command.getVehicleId())
+                    .orElseThrow(() ->
+                            new RuntimeException("Vehicle not found with ID: " + command.getVehicleId()));
+
+        } else {
+
+            List<Vehicle> vehicles = vehiclerepo.findByStatus("AVAILABLE");
+
+            if (vehicles.isEmpty()) {
+                throw new RuntimeException("No available vehicles right now");
+            }
+
+            vehicle = vehicles.get(0);
+        }
+
+        System.out.println("Vehicle Selected: " + vehicle.getVehicleNumber());
+
+        // STEP 6 : License Validation
+        LocalDate today1 = LocalDate.now();
+
+        if (vehicle.getLicenseExpiryDate() != null &&
+                vehicle.getLicenseExpiryDate().isBefore(today1)) {
+
+            throw new RuntimeException(
+                    "Vehicle license expired on " + vehicle.getLicenseExpiryDate());
+        }
+
+        // STEP 7 : Vehicle Status Check
+        if (!"AVAILABLE".equalsIgnoreCase(vehicle.getStatus())) {
+
+            throw new RuntimeException(
+                    "Vehicle not available. Current status: " + vehicle.getStatus());
+        }
+
+        // STEP 8 : Fetch Distance
+        System.out.println("Fetching Distance...");
+
+        WhDistance distance = distancerepo
+                .findByStartLocationAndDestination(
+                        command.getStartlocation(),
+                        command.getDestination());
+
+        if (distance == null) {
+            throw new RuntimeException("Distance not found between "
+                    + command.getStartlocation() + " and " + command.getDestination());
+        }
+
+        double km = distance.getDistanceKm();
+
+        System.out.println("Distance Found: " + km + " KM");
+
+        // STEP 9 : Calculate ETA
+        double avgSpeed = 50;
+
+        long travelHours = (long) (km / avgSpeed);
+
+        LocalDateTime arrival = start.plusHours(travelHours);
+
+        System.out.println("Expected Arrival Time: " + arrival);
+
+        // STEP 10 : Create Trip
+        Trip trip = new Trip();
+
+        trip.setStartLocation(command.getStartlocation());
+        trip.setDestination(command.getDestination());
+        trip.setStartTime(start);
+        trip.setExpectedArrival(arrival);
+        trip.setVehicleId(vehicle.getId());
+        trip.setDistance(km);
+
+        System.out.println("Saving Trip...");
+
+        Trip savedTrip = triprepo.save(trip);
+
+        // STEP 11 : Update Vehicle Status
+        vehicle.setStatus("RUNNING");
+
+        vehiclerepo.save(vehicle);
+
+        System.out.println("Vehicle status updated to RUNNING");
+
+        // STEP 12 : Build Response
+        TripResponse response = new TripResponse();
+
+        response.setId(savedTrip.getId());
+        response.setStartLocation(savedTrip.getStartLocation());
+        response.setDestination(savedTrip.getDestination());
+        response.setVehicleId(savedTrip.getVehicleId());
+        response.setVehicleNumber(vehicle.getVehicleNumber());
+        response.setDrivername(vehicle.getDriverName());
+        response.setStartTime(savedTrip.getStartTime());
+        response.setExpectedArrivalTime(savedTrip.getExpectedArrival());
+
+        System.out.println("Trip Response Ready");
+        System.out.println("====================================");
+
+        return response;
+    }
+
+    // JSON Parsing Method
+    private TripCommand parseJson(String aiResponse) {
+
+        try {
+
+            int start = aiResponse.indexOf("{");
+            int end = aiResponse.lastIndexOf("}");
+
+            if (start == -1 || end == -1) {
+                throw new RuntimeException("No JSON found in AI response");
+            }
+
+            String json = aiResponse.substring(start, end + 1);
+
+            System.out.println("Clean JSON:");
+            System.out.println(json);
+
+            ObjectMapper mapper = new ObjectMapper();
+
+            return mapper.readValue(json, TripCommand.class);
+
+        } catch (Exception e) {
+
+            System.out.println("AI Response Was:");
+            System.out.println(aiResponse);
+
+            throw new RuntimeException("Error parsing AI response: " + e.getMessage());
+        }
+    }
+
+	
+}

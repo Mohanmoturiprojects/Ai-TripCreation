@@ -1,0 +1,25 @@
+package com.example.logikal.config;
+
+import org.springframework.ai.chat.client.ChatClient;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+@Configuration
+public class AiConfig {
+
+    @Value("${spring.ai.ollama.base-url:http://localhost:11434}")
+    private String baseUrl;
+
+    @Bean
+    @Primary
+    public OllamaChatModel ollamaChatModel(RestTemplateBuilder builder) {
+        OllamaApi ollamaApi = new OllamaApi(baseUrl, builder.build());
+        OllamaChatModel model = new OllamaChatModel(ollamaApi, new OllamaChatOptions());
+        model.setDefaultOptions(OllamaChatOptions.builder()
+            .withModel("llama3:latest")
+            .withTemperature(0.7f)
+            .build());
+        return model;
+    }
+
+}

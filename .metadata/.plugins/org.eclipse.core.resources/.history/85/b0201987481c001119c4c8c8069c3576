@@ -1,0 +1,5 @@
+package com.example.logikal.model;
+
+public class TripCommand {
+
+}

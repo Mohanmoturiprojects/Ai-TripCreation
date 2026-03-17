@@ -1,0 +1,16 @@
+package com.example.logikal.config;
+
+public String convertSpeechToText(MultipartFile file) {
+
+    try {
+
+        String transcription = chatClient.audio()
+                .transcribe(file.getBytes());
+
+        return transcription;
+
+    } catch (Exception e) {
+
+        throw new RuntimeException("Speech to text error: " + e.getMessage());
+    }
+}

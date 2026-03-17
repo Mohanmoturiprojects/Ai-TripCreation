@@ -1,0 +1,11 @@
+package com.example.logikal.model;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+
+@Data
+@AllArgsConstructor
+public class QuestionRequest {
+
+	private String question;
+}

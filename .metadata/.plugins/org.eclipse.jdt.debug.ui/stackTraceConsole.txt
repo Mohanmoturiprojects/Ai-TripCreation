@@ -1,0 +1,7 @@
+spring.ai.ollama.base-url=http://localhost:11434
+spring.ai.ollama.chat.model=llama3:latest
+spring.ai.ollama.chat.options.stream=false
+
+# WebClient timeouts (Spring Boot auto-configures)
+spring.webflux.webclient.connect-timeout=30s
+spring.webflux.webclient.read-timeout=600s

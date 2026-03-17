@@ -1,0 +1,15 @@
+package com.example.logikal.repo;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import com.example.logikal.Entity.WhDistance;
+
+
+public interface Warehouserepo extends JpaRepository<WhDistance, Long>{
+
+	static Warehouserepo findBySourceAndDestination(String source, String destination) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+}
